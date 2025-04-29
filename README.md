@@ -24,3 +24,11 @@ This project aims to build an ML pipeline that classifies commercials (advertise
 ```bash
 pip install -r requirements.txt
 ```
+
+## Additional System Requirements
+
+This project requires `ffmpeg` to be installed for handling video downloads (used by yt-dlp).
+
+- On MacOS:
+  ```bash
+  brew install ffmpeg
