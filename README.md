@@ -23,6 +23,7 @@ This project aims to build an ML pipeline that classifies commercials (advertise
 
 ```bash
 pip install -r requirements.txt
+streamlit run scripts/labeling_tool.py
 ```
 
 ## Additional System Requirements

@@ -14,69 +14,96 @@ def list_video_files(directory):
 
 # Main function that runs the labeling app
 def main():
-    st.title("Commercial Labeling Tool")  # Title for the web app
+    st.title("Commercial Labeling Tool")
 
-    video_dir = "data/raw"  # Directory where raw videos are stored
-    label_file = "data/processed/labels.csv"  # Path to save labeled data
+    video_dir = "data/raw"
+    label_file = "data/processed/labels.csv"
 
-    # Create processed directory if it doesn't exist
     os.makedirs(os.path.dirname(label_file), exist_ok=True)
 
-    # Load existing labels if they exist, otherwise create an empty DataFrame
+    # Load existing labels
     if os.path.exists(label_file):
         labels_df = pd.read_csv(label_file)
     else:
         labels_df = pd.DataFrame(columns=["video_name", "industry", "audience", "sexual_content"])
 
-    # List all video files
-    video_files = list_video_files(video_dir)
-    # Get set of already labeled video names
-    labeled_videos = set(labels_df['video_name'])
+    all_videos = list_video_files(video_dir)
+    labeled_videos = set(labels_df["video_name"])
 
-    # Find videos that still need labeling
-    videos_to_label = [vf for vf in video_files if vf not in labeled_videos]
+    # --- Mode selector ---
+    mode = st.radio("Choose labeling mode:", ["Label new (unlabeled) videos", "Label any video (select manually)"])
 
-    # If there are videos to label
-    if videos_to_label:
-        video = videos_to_label[0]  # Pick the first unlabeled video
-        st.video(os.path.join(video_dir, video))  # Display the video
+    if 'selected_index' not in st.session_state:
+        st.session_state.selected_index = 0
 
-        # Predefined industry options for labeling (dropdown menu)
-        industry_options = [
-            "Automotive",
-            "Food & Beverage",
-            "Technology",
-            "Fashion & Beauty",
-            "Health & Pharma",
-            "Retail",
-            "Financial Services",
-            "Travel & Hospitality",
-            "Entertainment",
-            "Toys & Games",
-            "Nonprofit/PSA",
-            "Other"
-        ]
+    if mode == "Label new (unlabeled) videos":
+        videos_to_label = [vf for vf in all_videos if vf not in labeled_videos]
+        if not videos_to_label:
+            st.success("All videos are labeled!")
+            return
+        all_videos = videos_to_label  # Override to show only new videos
+        if 'selected_index' not in st.session_state:
+            st.session_state.selected_index = 0
 
-        # Create dropdown inputs for labeling
-        industry = st.selectbox("Industry", industry_options)
-        audience = st.selectbox("Audience", ["Kids", "Teens", "Adults", "Seniors", "All Ages"])
-        sexual_content = st.selectbox("Sexual Content", ["Yes", "No"])
+    selected_video = all_videos[st.session_state.selected_index]
 
-        # When the user clicks the submit button
-        if st.button("Submit Label"):
-            # Save the new label into the DataFrame
-            new_label = {
-                "video_name": video,
-                "industry": industry,
-                "audience": audience,
-                "sexual_content": sexual_content
-            }
-            labels_df = labels_df.append(new_label, ignore_index=True)
-            labels_df.to_csv(label_file, index=False)  # Save back to CSV
-            st.success("Label saved! Reloading...")  # Show a success message
-            st.experimental_rerun()  # Reload the app to show the next video
+    if mode == "Label any video (select manually)":
+        dropdown_video = st.selectbox(
+            "Select a video to label (or re-label):",
+            all_videos,
+            index=st.session_state.selected_index,
+            key="dropdown_video"
+        )
+        if dropdown_video != selected_video:
+            st.session_state.selected_index = all_videos.index(dropdown_video)
+            selected_video = dropdown_video
+
+    st.video(os.path.join(video_dir, selected_video))
+
+    # Fetch existing label
+    existing_label = labels_df[labels_df["video_name"] == selected_video]
+    if not existing_label.empty:
+        industry = existing_label["industry"].values[0]
+        audience = existing_label["audience"].values[0]
+        sexual_content = existing_label["sexual_content"].values[0]
     else:
-        st.write("All videos labeled!")  # If nothing left to label
+        industry = "Other"
+        audience = "All Ages"
+        sexual_content = "No"
+
+    # Labeling inputs
+    industry_options = [
+        "Automotive", "Food & Beverage", "Technology", "Fashion & Beauty", "Health & Pharma", "Cosmetics & Toiletries",
+        "Retail & E-commerce", "Financial Services", "Travel & Hospitality", "Entertainment & Media",
+        "Toys & Children", "Nonprofit / PSA", "Delivery & Logistics", "Other"
+    ]
+
+    industry = st.selectbox("Industry", industry_options, index=industry_options.index(industry))
+    audience = st.selectbox("Audience", ["Kids", "Teens", "Adults", "Seniors", "All Ages"], index=["Kids", "Teens", "Adults", "Seniors", "All Ages"].index(audience))
+    sexual_content = st.selectbox("Sexual Content", ["Yes", "No"], index=["Yes", "No"].index(sexual_content))
+
+    # Buttons
+    submit = st.button("Submit Label")
+    skip = st.button("Skip and Next")
+
+    if submit:
+        new_label = {
+            "video_name": selected_video,
+            "industry": industry,
+            "audience": audience,
+            "sexual_content": sexual_content
+        }
+        labels_df = labels_df[labels_df["video_name"] != selected_video]
+        labels_df = pd.concat([labels_df, pd.DataFrame([new_label])], ignore_index=True)
+        labels_df.to_csv(label_file, index=False)
+        st.success("Label saved (overwritten if existed).")
+        if st.button("Back to Mode Selection"):
+            st.session_state.clear()
+            st.rerun()
+
+    elif skip:
+        st.session_state.selected_index = (st.session_state.selected_index + 1) % len(all_videos)
+        st.rerun()
 
 
 # Entry point of the script
