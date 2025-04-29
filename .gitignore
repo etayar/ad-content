@@ -1,0 +1,14 @@
+# Ignore big data
+data/
+models/
+*.mp4
+*.avi
+*.mov
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment files
+venv/
+__pycache__/
+*.pyc

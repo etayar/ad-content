@@ -1,0 +1,9 @@
+numpy
+pandas
+scikit-learn
+torch
+transformers
+opencv-python
+yt-dlp
+streamlit
+tqdm
