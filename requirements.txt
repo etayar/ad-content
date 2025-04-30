@@ -7,3 +7,5 @@ opencv-python
 yt-dlp
 streamlit
 tqdm
+opencv-python
+moviepy==1.0.3
