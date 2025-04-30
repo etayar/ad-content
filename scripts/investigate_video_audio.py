@@ -29,7 +29,7 @@ def extract_video_and_audio_data(video_path, output_dir="data/extracted", save=F
         frame_entry = {
             "video_name": base_name,
             "frame_index": i,
-            "timestamp": round(t, 3),
+            "timestamp": round(t, 5),
             "resolution": clip.size,
             "fps": fps,
         }
@@ -43,7 +43,6 @@ def extract_video_and_audio_data(video_path, output_dir="data/extracted", save=F
         frame_data.append(frame_entry)
 
     # --- Extract audio if available ---
-    audio_info = None
     if clip.audio is not None:
         audio_info = {
             "video_name": base_name,
