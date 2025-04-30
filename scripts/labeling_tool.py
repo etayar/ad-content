@@ -25,7 +25,7 @@ def main():
     if os.path.exists(label_file):
         labels_df = pd.read_csv(label_file)
     else:
-        labels_df = pd.DataFrame(columns=["video_name", "industry", "audience", "sexual_content"])
+        labels_df = pd.DataFrame(columns=["video_name", "industry", "audience", "family_friendly"])
 
     all_videos = list_video_files(video_dir)
     labeled_videos = set(labels_df["video_name"])
@@ -65,11 +65,11 @@ def main():
     if not existing_label.empty:
         industry = existing_label["industry"].values[0]
         audience = existing_label["audience"].values[0]
-        sexual_content = existing_label["sexual_content"].values[0]
+        family_friendly = existing_label["family_friendly"].values[0]
     else:
         industry = "Other"
         audience = "All Ages"
-        sexual_content = "No"
+        family_friendly = "No"
 
     # Labeling inputs
     industry_options = [
@@ -80,7 +80,7 @@ def main():
 
     industry = st.selectbox("Industry", industry_options, index=industry_options.index(industry))
     audience = st.selectbox("Audience", ["Kids", "Teens", "Adults", "Seniors", "All Ages"], index=["Kids", "Teens", "Adults", "Seniors", "All Ages"].index(audience))
-    sexual_content = st.selectbox("Sexual Content", ["Yes", "No"], index=["Yes", "No"].index(sexual_content))
+    family_friendly = st.selectbox("Sexual Content", ["Yes", "No"], index=["Yes", "No"].index(family_friendly))
 
     # Buttons
     submit = st.button("Submit Label")
@@ -91,7 +91,7 @@ def main():
             "video_name": selected_video,
             "industry": industry,
             "audience": audience,
-            "sexual_content": sexual_content
+            "family_friendly": family_friendly
         }
         labels_df = labels_df[labels_df["video_name"] != selected_video]
         labels_df = pd.concat([labels_df, pd.DataFrame([new_label])], ignore_index=True)

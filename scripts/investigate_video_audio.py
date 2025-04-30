@@ -7,7 +7,10 @@ import numpy as np
 import pandas as pd
 
 
-def extract_video_and_audio_data(video_path, output_dir="data/extracted", save=False, frame_interval=1):
+def extract_video_and_audio_data(video_path, output_dir="data/frames/extracted_frames", save=False, frame_interval=1):
+    # Ensure the output base directory exists
+    os.makedirs(output_dir, exist_ok=True)
+
     clip = VideoFileClip(video_path)
     fps = clip.fps
     duration = clip.duration
@@ -71,6 +74,7 @@ def extract_video_and_audio_data(video_path, output_dir="data/extracted", save=F
             print("🔇 No audio saved.")
 
     return frame_df, audio_info
+
 
 
 def read_clip(video_path):
