@@ -60,3 +60,5 @@ typing_extensions==4.13.2
 tzdata==2025.2
 urllib3==2.4.0
 yt-dlp==2025.3.31
+torchvision==0.18.0
+
