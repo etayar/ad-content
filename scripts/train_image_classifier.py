@@ -206,4 +206,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # python scripts/train_image_classifier.py --epochs 10 --model resnet
+    # or
+    # python scripts/train_image_classifier.py --epochs 10 --model vit
     main()
