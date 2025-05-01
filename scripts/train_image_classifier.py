@@ -2,13 +2,12 @@ import os
 import pandas as pd
 import torch
 import torch.nn as nn
-from networkx import config
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms, models
 from torchvision.models import vit_b_16, ViT_B_16_Weights
 from PIL import Image
 from sklearn.preprocessing import LabelEncoder, label_binarize
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import roc_auc_score
 import joblib
 import argparse
 from tqdm import tqdm
