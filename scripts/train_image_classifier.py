@@ -7,7 +7,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms, models
 from torchvision.models import vit_b_16, ViT_B_16_Weights
 from PIL import Image
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, label_binarize
 from sklearn.metrics import accuracy_score, roc_auc_score
 import joblib
 import argparse
@@ -101,7 +101,6 @@ class MultiLabelViT(nn.Module):
 
 
 def train_model(model, train_loader, val_loader, device, model_filename, epochs=10, fine_tune_backbone=True):
-
     criterion_industry = nn.CrossEntropyLoss()
     criterion_audience = nn.CrossEntropyLoss()
     criterion_family = nn.BCEWithLogitsLoss()
@@ -120,6 +119,9 @@ def train_model(model, train_loader, val_loader, device, model_filename, epochs=
 
     train_losses, val_losses = [], []
     train_batch_losses, val_batch_losses = [], []
+    best_auc = 0.0
+
+    industry_aucs, audience_aucs, family_aucs, avg_aucs = [], [], [], []
 
     for epoch in range(epochs):
         model.train()
@@ -148,11 +150,15 @@ def train_model(model, train_loader, val_loader, device, model_filename, epochs=
                 "phase": "train"
             })
 
-            if (i := len(train_batch_losses)) % 10 == 0:  # Print every 10 batches
+            if (i := len(train_batch_losses)) % 10 == 0:
                 tqdm.write(f"[Train][Batch {i}] Loss: {loss.item():.4f}")
 
         model.eval()
         val_loss = 0
+
+        true_industry, true_audience, true_family = [], [], []
+        pred_industry, pred_audience, pred_family = [], [], []
+
         with torch.no_grad():
             for images, targets in tqdm(val_loader, desc="Validating", leave=False):
                 images = images.to(device)
@@ -174,14 +180,64 @@ def train_model(model, train_loader, val_loader, device, model_filename, epochs=
                     "phase": "val"
                 })
 
-                if (j := len(val_batch_losses)) % 5 == 0:
-                    tqdm.write(f"[Val][Batch {j}] Loss: {loss.item():.4f}")
+                if len(val_batch_losses) % 5 == 0:
+                    tqdm.write(f"[Val][Batch {len(val_batch_losses)}] Loss: {loss.item():.4f}")
 
+                true_industry.extend(industry_labels.cpu().numpy())
+                true_audience.extend(audience_labels.cpu().numpy())
+                true_family.extend(family_labels.cpu().numpy())
+
+                pred_industry.extend(torch.softmax(out_industry, dim=1).cpu().numpy())
+                pred_audience.extend(torch.softmax(out_audience, dim=1).cpu().numpy())
+                pred_family.extend(torch.sigmoid(out_family).cpu().numpy())
+
+        num_industries = model.fc_industry.out_features
+        num_audiences = model.fc_audience.out_features
+
+        try:
+            industry_auc = roc_auc_score(
+                label_binarize(true_industry, classes=list(range(num_industries))),
+                pred_industry,
+                average="macro",
+                multi_class="ovr"
+            )
+        except:
+            industry_auc = 0.0
+
+        try:
+            audience_auc = roc_auc_score(
+                label_binarize(true_audience, classes=list(range(num_audiences))),
+                pred_audience,
+                average="macro",
+                multi_class="ovr"
+            )
+        except:
+            audience_auc = 0.0
+
+        try:
+            family_auc = roc_auc_score(true_family, pred_family)
+        except:
+            family_auc = 0.0
+
+        epoch_auc = (industry_auc + audience_auc + family_auc) / 3
+
+        industry_aucs.append(industry_auc)
+        audience_aucs.append(audience_auc)
+        family_aucs.append(family_auc)
+        avg_aucs.append(epoch_auc)
+
+        print(f"\nEpoch {epoch + 1} ROC-AUCs — Industry: {industry_auc:.4f}, Audience: {audience_auc:.4f}, Family: {family_auc:.4f}")
         avg_train = total_loss / len(train_loader)
         avg_val = val_loss / len(val_loader)
         train_losses.append(avg_train)
         val_losses.append(avg_val)
-        print(f"\n[Epoch {epoch+1}/{epochs}] Train Loss: {avg_train:.4f}, Validation Loss: {avg_val:.4f}")
+        print(f"[Epoch {epoch + 1}/{epochs}] Train Loss: {avg_train:.4f}, Validation Loss: {avg_val:.4f}")
+
+        if epoch_auc > best_auc:
+            best_auc = epoch_auc
+            best_model_path = os.path.join("models", f"best_{model_filename}")
+            torch.save(model.state_dict(), best_model_path)
+            print(f"Best model updated (Avg AUC {epoch_auc:.4f}) → {best_model_path}")
 
     os.makedirs("scripts/logs", exist_ok=True)
 
@@ -194,8 +250,17 @@ def train_model(model, train_loader, val_loader, device, model_filename, epochs=
 
     pd.DataFrame(train_batch_losses + val_batch_losses).to_csv("scripts/logs/batch_loss_log.csv", index=False)
 
+    pd.DataFrame({
+        "epoch": range(1, epochs + 1),
+        "industry_auc": industry_aucs,
+        "audience_auc": audience_aucs,
+        "family_auc": family_aucs,
+        "avg_auc": avg_aucs
+    }).to_csv("scripts/logs/auc_log.csv", index=False)
+
     print("Logs saved to scripts/logs/")
     return train_losses, val_losses
+
 
 
 def evaluate_family_friendly(model, val_loader, device):
