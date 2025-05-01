@@ -14,3 +14,13 @@ __pycache__/
 *.pyc
 .venv/
 data/raw/
+
+# Ignore virtual environment
+.venv310/
+
+# Ignore data archive
+data.zip
+
+# Ignore PyCharm project files
+.idea/
+

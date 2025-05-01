@@ -11,15 +11,15 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, roc_auc_score
 import joblib
 import argparse
+from tqdm import tqdm
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
-    parser.add_argument("--model", type=str, default="resnet", choices=["resnet", "vit"], help="Model architecture")
-    parser.add_argument("--data_path", type=str, default="data/frames/frame_data_all.csv", help="path to data")
-    parser.add_argument("--batch_size", type=int, default=32)
-    return parser.parse_args()
+# Absolute path to project root
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def resolve_path(path):
+    return path if os.path.isabs(path) else os.path.join(PROJECT_ROOT, path)
 
 
 def load_data(data_path):
@@ -48,7 +48,7 @@ class FrameDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
-        img_path = row["frame_path"]
+        img_path = resolve_path(row["frame_path"])
         image = Image.open(img_path).convert("RGB")
         if self.transform:
             image = self.transform(image)
@@ -108,7 +108,8 @@ def train_model(model, train_loader, val_loader, device, epochs):
     for epoch in range(epochs):
         model.train()
         total_loss = 0
-        for images, targets in train_loader:
+        print(f"\nEpoch {epoch + 1}/{epochs}")
+        for images, targets in tqdm(train_loader, desc="Training", leave=False):
             images = images.to(device)
             industry_labels = targets["industry"].to(device)
             audience_labels = targets["audience"].to(device)
@@ -128,7 +129,7 @@ def train_model(model, train_loader, val_loader, device, epochs):
         model.eval()
         val_loss = 0
         with torch.no_grad():
-            for images, targets in val_loader:
+            for images, targets in tqdm(val_loader, desc="Validating", leave=False):
                 images = images.to(device)
                 industry_labels = targets["industry"].to(device)
                 audience_labels = targets["audience"].to(device)
@@ -169,9 +170,17 @@ def evaluate_family_friendly(model, val_loader, device):
         print("Not enough data for ROC-AUC computation.")
 
 
-def main():
-    args = parse_args()
-    df, _ = load_data(data_path=args.data_path)
+def main(config_d=None):
+    if config:
+        # Convert dict to CLI-style list
+        config_args = [f"--{k}={v}" for k, v in config_d.items()]
+        args = parse_args(config_args)
+    else:
+        args = parse_args()
+
+    data_path = resolve_path(args.data_path)
+    df, _ = load_data(data_path=data_path)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_size = args.batch_size
 
@@ -208,6 +217,23 @@ def main():
     print(f"\n✅ Model saved to models/multilabel_{args.model}.pt")
 
 
+def parse_args(args=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
+    parser.add_argument("--model", type=str, default="resnet", choices=["resnet", "vit"], help="Model architecture")
+    parser.add_argument("--data_path", type=str, default="data/frames/frame_data_all.csv", help="path to data")
+    parser.add_argument("--batch_size", type=int, default=32)
+    return parser.parse_args(args)
+
+
 if __name__ == "__main__":
-    config = {}
-    main()
+    # python train.py --epochs 1 --model vit --batch_size 64 --data_path data/frames/frame_data_all.csv
+
+    config_d = {
+        "epochs": 1,
+        "model": "vit",
+        "data_path": "data/frames/frame_data_all.csv",
+        "batch_size": 64
+    }
+
+    main(config_d)
