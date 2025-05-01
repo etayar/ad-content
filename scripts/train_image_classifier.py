@@ -148,7 +148,8 @@ def train_model(model, train_loader, val_loader, device, model_filename, epochs=
                 "phase": "train"
             })
 
-            tqdm.write(f"[Train] Batch loss: {loss.item():.4f}")
+            if (i := len(train_batch_losses)) % 10 == 0:  # Print every 10 batches
+                tqdm.write(f"[Train][Batch {i}] Loss: {loss.item():.4f}")
 
         model.eval()
         val_loss = 0
@@ -173,7 +174,8 @@ def train_model(model, train_loader, val_loader, device, model_filename, epochs=
                     "phase": "val"
                 })
 
-                tqdm.write(f"[Val]   Batch loss: {loss.item():.4f}")
+                if (j := len(val_batch_losses)) % 5 == 0:
+                    tqdm.write(f"[Val][Batch {j}] Loss: {loss.item():.4f}")
 
         avg_train = total_loss / len(train_loader)
         avg_val = val_loss / len(val_loader)
