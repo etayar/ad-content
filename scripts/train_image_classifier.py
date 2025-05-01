@@ -126,6 +126,8 @@ def train_model(model, train_loader, val_loader, device, epochs):
             optimizer.step()
             total_loss += loss.item()
 
+            tqdm.write(f"[Train] Batch loss: {loss.item():.4f}")
+
         model.eval()
         val_loss = 0
         with torch.no_grad():
@@ -142,6 +144,8 @@ def train_model(model, train_loader, val_loader, device, epochs):
                     + criterion_family(out_family, family_labels)
                 )
                 val_loss += loss.item()
+
+                tqdm.write(f"[Val]   Batch loss: {loss.item():.4f}")
 
         avg_train = total_loss / len(train_loader)
         avg_val = val_loss / len(val_loader)
@@ -231,7 +235,7 @@ if __name__ == "__main__":
 
     config_d = {
         "epochs": 1,
-        "model": "vit",
+        "model": "resnet",
         "data_path": "data/frames/frame_data_all.csv",
         "batch_size": 64
     }
