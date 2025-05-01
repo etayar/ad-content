@@ -99,11 +99,11 @@ class MultiLabelViT(nn.Module):
 
 
 def train_model(model, train_loader, val_loader, device, epochs=10, fine_tune_backbone=True):
+
     criterion_industry = nn.CrossEntropyLoss()
     criterion_audience = nn.CrossEntropyLoss()
     criterion_family = nn.BCEWithLogitsLoss()
 
-    # Optionally freeze backbone
     if not fine_tune_backbone:
         print("Freezing backbone weights...")
         for param in model.backbone.parameters():
@@ -117,6 +117,8 @@ def train_model(model, train_loader, val_loader, device, epochs=10, fine_tune_ba
     )
 
     train_losses, val_losses = [], []
+    train_batch_losses, val_batch_losses = [], []
+
     for epoch in range(epochs):
         model.train()
         total_loss = 0
@@ -138,6 +140,12 @@ def train_model(model, train_loader, val_loader, device, epochs=10, fine_tune_ba
             optimizer.step()
             total_loss += loss.item()
 
+            train_batch_losses.append({
+                "epoch": epoch + 1,
+                "batch_loss": loss.item(),
+                "phase": "train"
+            })
+
             tqdm.write(f"[Train] Batch loss: {loss.item():.4f}")
 
         model.eval()
@@ -157,6 +165,12 @@ def train_model(model, train_loader, val_loader, device, epochs=10, fine_tune_ba
                 )
                 val_loss += loss.item()
 
+                val_batch_losses.append({
+                    "epoch": epoch + 1,
+                    "batch_loss": loss.item(),
+                    "phase": "val"
+                })
+
                 tqdm.write(f"[Val]   Batch loss: {loss.item():.4f}")
 
         avg_train = total_loss / len(train_loader)
@@ -165,6 +179,17 @@ def train_model(model, train_loader, val_loader, device, epochs=10, fine_tune_ba
         val_losses.append(avg_val)
         print(f"\n[Epoch {epoch+1}/{epochs}] Train Loss: {avg_train:.4f}, Validation Loss: {avg_val:.4f}")
 
+    os.makedirs("scripts/logs", exist_ok=True)
+
+    pd.DataFrame({
+        "epoch": range(1, epochs + 1),
+        "train_loss": train_losses,
+        "val_loss": val_losses
+    }).to_csv("scripts/logs/training_log.csv", index=False)
+
+    pd.DataFrame(train_batch_losses + val_batch_losses).to_csv("scripts/logs/batch_loss_log.csv", index=False)
+
+    print("Logs saved to scripts/logs/")
     return train_losses, val_losses
 
 
