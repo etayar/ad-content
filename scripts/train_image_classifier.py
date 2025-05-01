@@ -12,6 +12,7 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 import joblib
 import argparse
 from tqdm import tqdm
+from datetime import datetime
 
 
 # Absolute path to project root
@@ -265,7 +266,12 @@ def main(config_d=None):
     print("\n📝 Training log saved to logs/training_log.csv")
 
     evaluate_family_friendly(model, val_loader, device)
-    torch.save(model.state_dict(), f"models/multilabel_{args.model}.pt")
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    model_path = f"models/multilabel_{args.model}_{timestamp}.pt"
+    torch.save(model.state_dict(), model_path)
+    print(f"Model saved to {model_path}")
+
     print(f"\n✅ Model saved to models/multilabel_{args.model}.pt")
 
 
