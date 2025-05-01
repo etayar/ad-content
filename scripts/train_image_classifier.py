@@ -98,11 +98,23 @@ class MultiLabelViT(nn.Module):
         )
 
 
-def train_model(model, train_loader, val_loader, device, epochs):
+def train_model(model, train_loader, val_loader, device, epochs=10, fine_tune_backbone=True):
     criterion_industry = nn.CrossEntropyLoss()
     criterion_audience = nn.CrossEntropyLoss()
     criterion_family = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+
+    # Optionally freeze backbone
+    if not fine_tune_backbone:
+        print("Freezing backbone weights...")
+        for param in model.backbone.parameters():
+            param.requires_grad = False
+    else:
+        print("Fine-tuning entire model (backbone + heads)")
+
+    optimizer = torch.optim.Adam(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=1e-4
+    )
 
     train_losses, val_losses = [], []
     for epoch in range(epochs):
@@ -175,9 +187,13 @@ def evaluate_family_friendly(model, val_loader, device):
 
 
 def main(config_d=None):
-    if config:
-        # Convert dict to CLI-style list
-        config_args = [f"--{k}={v}" for k, v in config_d.items()]
+    if config_d:
+        config_args = []
+        for k, v in config_d.items():
+            if isinstance(v, bool) and v:  # only include flag if it's True
+                config_args.append(f"--{k}")
+            elif not isinstance(v, bool):
+                config_args.append(f"--{k}={v}")
         args = parse_args(config_args)
     else:
         args = parse_args()
@@ -209,7 +225,14 @@ def main(config_d=None):
         pretrained=True
     ).to(device)
 
-    train_losses, val_losses = train_model(model, train_loader, val_loader, device, args.epochs)
+    train_losses, val_losses = train_model(
+        model,
+        train_loader,
+        val_loader,
+        device,
+        epochs=args.epochs,
+        fine_tune_backbone=args.fine_tune_backbone
+    )
 
     os.makedirs("logs", exist_ok=True)
     pd.DataFrame({"epoch": range(1, args.epochs + 1), "train_loss": train_losses, "val_loss": val_losses})\
@@ -225,19 +248,30 @@ def parse_args(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
     parser.add_argument("--model", type=str, default="resnet", choices=["resnet", "vit"], help="Model architecture")
-    parser.add_argument("--data_path", type=str, default="data/frames/frame_data_all.csv", help="path to data")
-    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--data_path", type=str, default="data/frames/frame_data_all.csv", help="Path to data CSV")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training")
+    parser.add_argument("--fine_tune_backbone", action="store_true", help="Whether to fine-tune the backbone")
     return parser.parse_args(args)
 
 
 if __name__ == "__main__":
-    # python train.py --epochs 1 --model vit --batch_size 64 --data_path data/frames/frame_data_all.csv
+    # python scripts/train_image_classifier.py \
+    #   --epochs 20 \
+    #   --batch_size 64 \
+    #   --model vit \
+    #   --data_path data/frames/frame_data_all.csv \
+    #   --fine_tune_backbone
+    #
+    # If you include --fine_tune_backbone, the backbone will be trained.
+    #
+    # If you omit it, only the custom FC heads will be trained (backbone remains frozen).
 
     config_d = {
         "epochs": 1,
         "model": "resnet",
         "data_path": "data/frames/frame_data_all.csv",
-        "batch_size": 64
+        "batch_size": 64,
+        "fine_tune_backbone": True  # or False if you want to freeze it
     }
 
     main(config_d)
