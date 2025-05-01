@@ -13,6 +13,7 @@ import joblib
 import argparse
 from tqdm import tqdm
 from datetime import datetime
+import sys
 
 
 # Absolute path to project root
@@ -293,13 +294,14 @@ if __name__ == "__main__":
     # If you include --fine_tune_backbone, the backbone will be trained.
     #
     # If you omit it, only the custom FC heads will be trained (backbone remains frozen).
-
-    config_d = {
-        "epochs": 1,
-        "model": "resnet",
-        "data_path": "data/frames/frame_data_all.csv",
-        "batch_size": 64,
-        "fine_tune_backbone": True  # or False if you want to freeze it
-    }
-
-    main(config_d)
+    if len(sys.argv) > 1:
+        main()  # CLI args are provided
+    else:
+        config_d = {
+            "epochs": 1,
+            "model": "resnet",
+            "data_path": "data/frames/frame_data_all.csv",
+            "batch_size": 64,
+            "fine_tune_backbone": True
+        }
+        main(config_d)
