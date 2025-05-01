@@ -19,22 +19,32 @@ def get_augmentations():
 def extract_frames_from_video(video_path, interval_sec=1):
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     frame_interval = int(fps * interval_sec)
 
     frames = []
+    metadata = []
     frame_count = 0
-    success = True
+    scene_id = 0  # Optional: change if doing scene detection
 
-    while success:
+    while True:
         success, frame = cap.read()
         if not success:
             break
         if frame_count % frame_interval == 0:
             frames.append(frame)
+            metadata.append({
+                "frame_index": frame_count,
+                "timestamp_sec": round(frame_count / fps, 2),
+                "video_width": width,
+                "video_height": height,
+                "scene_id": scene_id
+            })
         frame_count += 1
 
     cap.release()
-    return frames
+    return frames, metadata
 
 
 def save_image(image_array, save_dir, prefix="frame"):
@@ -70,24 +80,26 @@ def process_videos(video_dir, save_dir, output_csv, interval_sec=1, n_aug=3):
     augmentations = get_augmentations()
 
     for video_path in video_paths:
-        frames = extract_frames_from_video(str(video_path), interval_sec=interval_sec)
-        for frame in frames:
+        frames, meta_list = extract_frames_from_video(str(video_path), interval_sec=interval_sec)
+        for frame, meta in zip(frames, meta_list):
             frame_path = save_image(frame, save_dir, prefix="orig")
+
             base_meta = {
                 "video_name": video_path.name,
                 "frame_path": frame_path,
-                "augmented": 0
+                "augmented": 0,
+                **meta  # merge timestamp, frame_index, resolution, scene_id
             }
 
-            # Augment the original frame
             img_pil = Image.open(frame_path).convert("RGB")
             aug_entries = save_augmented_images(img_pil, save_dir, base_meta, augmentations, n_aug=n_aug)
 
             all_entries.append(base_meta)
             all_entries.extend(aug_entries)
 
-    pd.DataFrame(all_entries).to_csv(output_csv, index=False)
-    print(f"✅ Video frames and augmentations saved to {output_csv}")
+    df = pd.DataFrame(all_entries)
+    df.to_csv(output_csv, index=False)
+    print(f"✅ Metadata CSV with {len(df)} entries saved to {output_csv}")
 
 
 if __name__ == "__main__":
