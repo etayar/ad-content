@@ -6,10 +6,9 @@ from torchvision import transforms
 from PIL import Image
 import pandas as pd
 import joblib
-from collections import defaultdict, Counter
+from collections import defaultdict
 from train_image_classifier import FrameDataset, MultiLabelResNet, MultiLabelViT
 from sklearn.metrics import accuracy_score, roc_auc_score
-
 
 def load_and_prepare_dataset(data_path, transform):
     df = pd.read_csv(data_path)
@@ -20,7 +19,6 @@ def load_and_prepare_dataset(data_path, transform):
         df[col + "_encoded"] = label_encoders[col].transform(df[col])
     dataset = FrameDataset(df, transform)
     return dataset, df, label_encoders
-
 
 def evaluate(model, loader, device, df_frames, label_encoders):
     model.eval()
@@ -50,7 +48,6 @@ def evaluate(model, loader, device, df_frames, label_encoders):
     for video, prediction in results.items():
         print(f"{video}: {prediction}")
 
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", choices=["resnet", "vit"], default="resnet")
@@ -71,7 +68,8 @@ def main():
     model_cls = MultiLabelResNet if args.model == "resnet" else MultiLabelViT
     model = model_cls(
         df["industry_encoded"].nunique(),
-        df["audience_encoded"].nunique()
+        df["audience_encoded"].nunique(),
+        pretrained=True
     ).to(device)
 
     if args.weights:
@@ -82,6 +80,10 @@ def main():
 
     evaluate(model, loader, device, df, label_encoders)
 
-
 if __name__ == "__main__":
+    # For ResNet-based model
+    # python scripts/evaluate_video_classifier.py --model resnet --weights models/multilabel_resnet.pt
+    #
+    # For ViT-based model
+    # python scripts/evaluate_video_classifier.py --model vit --weights models/multilabel_vit.pt
     main()

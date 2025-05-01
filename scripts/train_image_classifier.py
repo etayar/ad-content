@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import torch
 import torch.nn as nn
+from networkx import config
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms, models
 from torchvision.models import vit_b_16, ViT_B_16_Weights
@@ -14,13 +15,14 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
     parser.add_argument("--model", type=str, default="resnet", choices=["resnet", "vit"], help="Model architecture")
+    parser.add_argument("--data_path", type=str, default="data/frames/frame_data_all.csv", help="path to data")
+    parser.add_argument("--batch_size", type=int, default=32)
     return parser.parse_args()
 
 
-def load_data():
-    data_path = "data/frames/frame_data_all.csv"
+def load_data(data_path):
     df = pd.read_csv(data_path)
 
     label_cols = ["industry", "audience", "family_friendly"]
@@ -59,9 +61,9 @@ class FrameDataset(Dataset):
 
 
 class MultiLabelResNet(nn.Module):
-    def __init__(self, num_industries, num_audiences):
+    def __init__(self, num_industries, num_audiences, pretrained=True):
         super().__init__()
-        self.backbone = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
+        self.backbone = models.resnet50(weights=models.ResNet50_Weights.DEFAULT if pretrained else None)
         in_features = self.backbone.fc.in_features
         self.backbone.fc = nn.Identity()
         self.fc_industry = nn.Linear(in_features, num_industries)
@@ -78,9 +80,9 @@ class MultiLabelResNet(nn.Module):
 
 
 class MultiLabelViT(nn.Module):
-    def __init__(self, num_industries, num_audiences):
+    def __init__(self, num_industries, num_audiences, pretrained=True):
         super().__init__()
-        self.backbone = vit_b_16(weights=ViT_B_16_Weights.DEFAULT)
+        self.backbone = vit_b_16(weights=ViT_B_16_Weights.DEFAULT if pretrained else None)
         in_features = self.backbone.heads.head.in_features
         self.backbone.heads = nn.Identity()
         self.fc_industry = nn.Linear(in_features, num_industries)
@@ -169,9 +171,9 @@ def evaluate_family_friendly(model, val_loader, device):
 
 def main():
     args = parse_args()
-    df, _ = load_data()
+    df, _ = load_data(data_path=args.data_path)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    batch_size = 32
+    batch_size = args.batch_size
 
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -190,7 +192,8 @@ def main():
     model_cls = MultiLabelResNet if args.model == "resnet" else MultiLabelViT
     model = model_cls(
         df["industry_encoded"].nunique(),
-        df["audience_encoded"].nunique()
+        df["audience_encoded"].nunique(),
+        pretrained=True
     ).to(device)
 
     train_losses, val_losses = train_model(model, train_loader, val_loader, device, args.epochs)
@@ -206,7 +209,5 @@ def main():
 
 
 if __name__ == "__main__":
-    # python scripts/train_image_classifier.py --epochs 10 --model resnet
-    # or
-    # python scripts/train_image_classifier.py --epochs 10 --model vit
+    config = {}
     main()
