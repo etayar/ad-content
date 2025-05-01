@@ -99,7 +99,7 @@ class MultiLabelViT(nn.Module):
         )
 
 
-def train_model(model, train_loader, val_loader, device, epochs=10, fine_tune_backbone=True):
+def train_model(model, train_loader, val_loader, device, model_filename, epochs=10, fine_tune_backbone=True):
 
     criterion_industry = nn.CrossEntropyLoss()
     criterion_audience = nn.CrossEntropyLoss()
@@ -185,7 +185,8 @@ def train_model(model, train_loader, val_loader, device, epochs=10, fine_tune_ba
     pd.DataFrame({
         "epoch": range(1, epochs + 1),
         "train_loss": train_losses,
-        "val_loss": val_losses
+        "val_loss": val_losses,
+        "model_file": model_filename
     }).to_csv("scripts/logs/training_log.csv", index=False)
 
     pd.DataFrame(train_batch_losses + val_batch_losses).to_csv("scripts/logs/batch_loss_log.csv", index=False)
@@ -251,28 +252,24 @@ def main(config_d=None):
         pretrained=True
     ).to(device)
 
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    model_filename = f"multilabel_{args.model}_{timestamp}.pt"
+
     train_losses, val_losses = train_model(
         model,
         train_loader,
         val_loader,
         device,
         epochs=args.epochs,
-        fine_tune_backbone=args.fine_tune_backbone
+        fine_tune_backbone=args.fine_tune_backbone,
+        model_filename=model_filename
     )
-
-    os.makedirs("logs", exist_ok=True)
-    pd.DataFrame({"epoch": range(1, args.epochs + 1), "train_loss": train_losses, "val_loss": val_losses})\
-        .to_csv("logs/training_log.csv", index=False)
-    print("\n📝 Training log saved to logs/training_log.csv")
 
     evaluate_family_friendly(model, val_loader, device)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_path = f"models/multilabel_{args.model}_{timestamp}.pt"
+    model_path = os.path.join("models", model_filename)
     torch.save(model.state_dict(), model_path)
     print(f"Model saved to {model_path}")
-
-    print(f"\n✅ Model saved to models/multilabel_{args.model}.pt")
 
 
 def parse_args(args=None):
