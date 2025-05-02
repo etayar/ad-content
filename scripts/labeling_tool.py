@@ -2,13 +2,11 @@ import os
 import streamlit as st
 import pandas as pd
 
-
 # Function to list all video files in a directory
 def list_video_files(directory):
     return [f for f in os.listdir(directory) if f.endswith((".mp4", ".avi", ".mov"))]
 
-
-# Main function
+# Main app
 def main():
     st.title("Commercial Labeling Tool")
 
@@ -16,7 +14,7 @@ def main():
     label_file = "data/processed/labels.csv"
     os.makedirs(os.path.dirname(label_file), exist_ok=True)
 
-    # Load labels
+    # Load existing labels
     if os.path.exists(label_file):
         labels_df = pd.read_csv(label_file)
     else:
@@ -24,35 +22,30 @@ def main():
 
     all_videos = list_video_files(video_dir)
     labeled_videos = set(labels_df["video_name"])
+    videos_to_label = [vf for vf in all_videos if vf not in labeled_videos]
 
-    # --- Mode selector ---
     mode = st.radio("Choose labeling mode:", ["Label new (unlabeled) videos", "Label any video (select manually)"])
 
+    # --- Track index state for both modes ---
+    if 'new_index' not in st.session_state:
+        st.session_state.new_index = 0
+    if 'manual_index' not in st.session_state:
+        st.session_state.manual_index = 0
+
     if mode == "Label new (unlabeled) videos":
-        videos_to_label = [vf for vf in all_videos if vf not in labeled_videos]
         if not videos_to_label:
             st.success("All videos are labeled!")
             return
-        all_videos = videos_to_label
-        if "new_index" not in st.session_state:
-            st.session_state.new_index = 0
-        selected_index = st.session_state.new_index
-
-    else:  # Manual mode
-        if "manual_index" not in st.session_state:
-            st.session_state.manual_index = 0
-        selected_index = st.session_state.manual_index
-        dropdown_video = st.selectbox(
+        selected_video = videos_to_label[st.session_state.new_index]
+    else:
+        selected_video = st.selectbox(
             "Select a video to label (or re-label):",
             all_videos,
-            index=selected_index,
+            index=st.session_state.manual_index,
             key="dropdown_video"
         )
-        if dropdown_video != all_videos[selected_index]:
-            st.session_state.manual_index = all_videos.index(dropdown_video)
-            selected_index = st.session_state.manual_index
+        st.session_state.manual_index = all_videos.index(selected_video)
 
-    selected_video = all_videos[selected_index]
     st.video(os.path.join(video_dir, selected_video))
 
     # Fetch existing label
@@ -66,7 +59,7 @@ def main():
         audience = "All Ages"
         family_friendly = "No"
 
-    # Input fields
+    # Labeling inputs
     industry_options = [
         "Automotive", "Food & Beverage", "Technology", "Fashion & Beauty", "Health & Pharma", "Cosmetics & Toiletries",
         "Retail & E-commerce", "Financial Services", "Travel & Hospitality", "Entertainment & Media",
@@ -77,11 +70,8 @@ def main():
     audience = st.selectbox("Audience", ["Kids", "Teens", "Adults", "Seniors", "All Ages"], index=["Kids", "Teens", "Adults", "Seniors", "All Ages"].index(audience))
     family_friendly = st.selectbox("Family-Friendly", ["Yes", "No"], index=["Yes", "No"].index(family_friendly))
 
-    # --- Buttons ---
-    submit = st.button("Submit Label")
-    skip = st.button("Skip and Next")
-
-    if submit:
+    # Buttons
+    if st.button("Submit Label"):
         new_label = {
             "video_name": selected_video,
             "industry": industry,
@@ -96,13 +86,13 @@ def main():
             st.session_state.clear()
             st.rerun()
 
-    elif skip:
+    if st.button("Skip and Next"):
         if mode == "Label new (unlabeled) videos":
-            st.session_state.new_index = (st.session_state.new_index + 1) % len(all_videos)
+            st.session_state.new_index = (st.session_state.new_index + 1) % len(videos_to_label)
         else:
             st.session_state.manual_index = (st.session_state.manual_index + 1) % len(all_videos)
         st.rerun()
 
-
+# Entry point
 if __name__ == "__main__":
     main()
