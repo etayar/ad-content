@@ -75,7 +75,7 @@ def main():
     industry_options = [
         "Automotive", "Food & Beverage", "Technology", "Fashion & Beauty", "Health & Pharma", "Cosmetics & Toiletries",
         "Retail & E-commerce", "Financial Services", "Travel & Hospitality", "Entertainment & Media",
-        "Toys & Children", "Nonprofit / PSA", "Delivery & Logistics", "Other"
+        "Toys & Children", "Nonprofit / PSA", "Delivery & Logistics", "Other", "Home & Furniture"
     ]
 
     industry = st.selectbox("Industry", industry_options, index=industry_options.index(industry))
