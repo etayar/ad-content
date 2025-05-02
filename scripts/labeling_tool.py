@@ -5,23 +5,18 @@ import pandas as pd
 
 # Function to list all video files in a directory
 def list_video_files(directory):
-    video_files = []
-    for file in os.listdir(directory):
-        if file.endswith((".mp4", ".avi", ".mov")):
-            video_files.append(file)
-    return video_files
+    return [f for f in os.listdir(directory) if f.endswith((".mp4", ".avi", ".mov"))]
 
 
-# Main function that runs the labeling app
+# Main function
 def main():
     st.title("Commercial Labeling Tool")
 
     video_dir = "data/raw"
     label_file = "data/processed/labels.csv"
-
     os.makedirs(os.path.dirname(label_file), exist_ok=True)
 
-    # Load existing labels
+    # Load labels
     if os.path.exists(label_file):
         labels_df = pd.read_csv(label_file)
     else:
@@ -33,31 +28,31 @@ def main():
     # --- Mode selector ---
     mode = st.radio("Choose labeling mode:", ["Label new (unlabeled) videos", "Label any video (select manually)"])
 
-    if 'selected_index' not in st.session_state:
-        st.session_state.selected_index = 0
-
     if mode == "Label new (unlabeled) videos":
         videos_to_label = [vf for vf in all_videos if vf not in labeled_videos]
         if not videos_to_label:
             st.success("All videos are labeled!")
             return
-        all_videos = videos_to_label  # Override to show only new videos
-        if 'selected_index' not in st.session_state:
-            st.session_state.selected_index = 0
+        all_videos = videos_to_label
+        if "new_index" not in st.session_state:
+            st.session_state.new_index = 0
+        selected_index = st.session_state.new_index
 
-    selected_video = all_videos[st.session_state.selected_index]
-
-    if mode == "Label any video (select manually)":
+    else:  # Manual mode
+        if "manual_index" not in st.session_state:
+            st.session_state.manual_index = 0
+        selected_index = st.session_state.manual_index
         dropdown_video = st.selectbox(
             "Select a video to label (or re-label):",
             all_videos,
-            index=st.session_state.selected_index,
+            index=selected_index,
             key="dropdown_video"
         )
-        if dropdown_video != selected_video:
-            st.session_state.selected_index = all_videos.index(dropdown_video)
-            selected_video = dropdown_video
+        if dropdown_video != all_videos[selected_index]:
+            st.session_state.manual_index = all_videos.index(dropdown_video)
+            selected_index = st.session_state.manual_index
 
+    selected_video = all_videos[selected_index]
     st.video(os.path.join(video_dir, selected_video))
 
     # Fetch existing label
@@ -71,18 +66,18 @@ def main():
         audience = "All Ages"
         family_friendly = "No"
 
-    # Labeling inputs
+    # Input fields
     industry_options = [
         "Automotive", "Food & Beverage", "Technology", "Fashion & Beauty", "Health & Pharma", "Cosmetics & Toiletries",
         "Retail & E-commerce", "Financial Services", "Travel & Hospitality", "Entertainment & Media",
-        "Toys & Children", "Nonprofit / PSA", "Delivery & Logistics", "Other", "Home & Furniture"
+        "Toys & Children", "Nonprofit / PSA", "Delivery & Logistics", "Home & Furniture", "Other"
     ]
 
     industry = st.selectbox("Industry", industry_options, index=industry_options.index(industry))
     audience = st.selectbox("Audience", ["Kids", "Teens", "Adults", "Seniors", "All Ages"], index=["Kids", "Teens", "Adults", "Seniors", "All Ages"].index(audience))
     family_friendly = st.selectbox("Family-Friendly", ["Yes", "No"], index=["Yes", "No"].index(family_friendly))
 
-    # Buttons
+    # --- Buttons ---
     submit = st.button("Submit Label")
     skip = st.button("Skip and Next")
 
@@ -102,10 +97,12 @@ def main():
             st.rerun()
 
     elif skip:
-        st.session_state.selected_index = (st.session_state.selected_index + 1) % len(all_videos)
+        if mode == "Label new (unlabeled) videos":
+            st.session_state.new_index = (st.session_state.new_index + 1) % len(all_videos)
+        else:
+            st.session_state.manual_index = (st.session_state.manual_index + 1) % len(all_videos)
         st.rerun()
 
 
-# Entry point of the script
 if __name__ == "__main__":
     main()
