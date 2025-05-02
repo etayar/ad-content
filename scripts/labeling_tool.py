@@ -80,7 +80,7 @@ def main():
 
     industry = st.selectbox("Industry", industry_options, index=industry_options.index(industry))
     audience = st.selectbox("Audience", ["Kids", "Teens", "Adults", "Seniors", "All Ages"], index=["Kids", "Teens", "Adults", "Seniors", "All Ages"].index(audience))
-    family_friendly = st.selectbox("Sexual Content", ["Yes", "No"], index=["Yes", "No"].index(family_friendly))
+    family_friendly = st.selectbox("Family-Friendly", ["Yes", "No"], index=["Yes", "No"].index(family_friendly))
 
     # Buttons
     submit = st.button("Submit Label")
